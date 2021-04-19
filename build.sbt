@@ -24,6 +24,8 @@ scalacOptions ++=
 // Dependencies
 val zioVersion = "1.0.6"
 
+libraryDependencies += "dev.zio" %% "zio-streams" % zioVersion
+
 // Test settings
 libraryDependencies ++= Seq(
   "dev.zio" %% "zio-test" % zioVersion % "test->default",
