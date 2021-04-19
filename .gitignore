@@ -1,0 +1,10 @@
+/target/
+/project/target/
+/project/project/target/
+
+/.direnv/
+/.idea/
+/.cache
+/.classpath
+/.project
+/.settings/
