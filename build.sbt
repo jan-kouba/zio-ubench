@@ -5,7 +5,8 @@ version := scala.io.Source.fromFile(s"${baseDirectory.value}/version").mkString(
 val scalaVersions = Seq(
   "2.13.5",
   "2.12.13",
-  "2.11.12"
+  "2.11.12",
+  "3.0.0-RC2"
 )
 scalaVersion := scalaVersions.head
 crossScalaVersions := scalaVersions
