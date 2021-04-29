@@ -57,6 +57,27 @@ sealed trait Benchmark[-R, -I, +O] { self =>
   def &>[R1 <: R, I1 <: I, O1](that: Benchmark[R1, I1, O1]) =
     (this && that).map(_._2)
 
+  def ||[R1 <: R, I1 <: I, O1](that: Benchmark[R1, I1, O1]): Benchmark[R1, I1, (O, O1)] =
+    Benchmark {
+      def loop(
+        thisStep: StepFunc[R, I, O],
+        thatStep: StepFunc[R1, I1, O1]
+      ): StepFunc[R1, I1, (O, O1)] = { (dur, i) =>
+        for {
+          thisR <- thisStep(dur, i)
+          thatR <- thatStep(dur, i)
+        } yield {
+          Result(
+            (thisR.value, thatR.value),
+            thisR.done || thatR.done,
+            loop(thisR.nextStep, thatR.nextStep)
+          )
+        }
+      }
+
+      loop(self.step, that.step)
+    }
+
   def andThen[R1 <: R, O1](that: Benchmark[R1, O, O1]): Benchmark[R1, I, O1] =
     Benchmark {
       def loop(thisStep: StepFunc[R, I, O], thatStep: StepFunc[R1, O, O1]): StepFunc[R1, I, O1] = {
