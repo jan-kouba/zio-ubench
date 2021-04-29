@@ -16,8 +16,9 @@ object UBenchTests {
       val tolerance = 1.micros max (sleepDur.toNanos * 0.01).toLong.nanos
 
       assertM(
-        UBench
-          .benchmark(PreciseSleeper.sleep(sleepDur))
+        PreciseSleeper
+          .sleep(sleepDur)
+          .benchmark()
           .map(_.toNanos)
       )(approximatelyEquals(sleepDur.toNanos, tolerance.toNanos))
     } @@ TestAspect.timeout(10.seconds) @@ TestAspect.flaky(3)

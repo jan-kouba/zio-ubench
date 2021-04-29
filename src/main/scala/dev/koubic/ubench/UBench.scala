@@ -5,11 +5,6 @@ import zio.clock.Clock
 import zio.duration._
 
 object UBench {
-  private case class Step(
-    iterCount: Int,
-    totalDuration: Duration
-  )
-
   object Defaults {
     val Preheat: Benchmark[Clock, Any, Duration] = Benchmark.minRunTime(100.millis)
     val ApproxRunDuration: Duration = 5.millis
