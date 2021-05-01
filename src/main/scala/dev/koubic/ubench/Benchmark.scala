@@ -111,7 +111,7 @@ sealed trait Benchmark[-R, -I, +O] { self =>
       loop(self.step, that.step)
     }
 
-  def andThen[R1 <: R, O1](that: Benchmark[R1, O, O1]): Benchmark[R1, I, O1] =
+  def >>>[R1 <: R, O1](that: Benchmark[R1, O, O1]): Benchmark[R1, I, O1] =
     Benchmark {
       def loop(thisStep: StepFunc[R, I, O], thatStep: StepFunc[R1, O, O1]): StepFunc[R1, I, O1] = {
         (dur, i) =>
@@ -178,7 +178,7 @@ sealed trait Benchmark[-R, -I, +O] { self =>
         .map(_.get)
         .untilOutput { case (_, since) => since > n }
 
-    (this andThen stopper).map(_._1)
+    (this >>> stopper).map(_._1)
   }
 }
 
@@ -312,7 +312,7 @@ object Benchmark {
 
   def untilLowRmse(maxRmse: Duration, keepLastItems: Int): Benchmark[Any, Any, Duration] = {
     val maxMse = maxRmse.toNanos * maxRmse.toNanos
-    keepLastN(keepLastItems).andThen(mseNs.untilOutput(_ < maxMse) &> avg)
+    keepLastN(keepLastItems) >>> (mseNs.untilOutput(_ < maxMse) &> avg)
   }
 
   def untilLocalMin(window: Int): Benchmark[Any, Any, Duration] =
