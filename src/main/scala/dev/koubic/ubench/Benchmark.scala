@@ -6,7 +6,7 @@ import zio.clock._
 import zio.duration._
 
 sealed trait Benchmark[-R, -I, +O] { self =>
-  def step: StepFunc[R, I, O]
+  protected def step: StepFunc[R, I, O]
 
   def map[O2](func: O => O2): Benchmark[R, I, O2] =
     mapM { o => ZIO.succeed(func(o)) }
