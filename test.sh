@@ -3,4 +3,7 @@
 set -eu
 
 
-sbtn '; scalafmtCheckAll ; scalafixAll --check; + test'
+sbtn scalafmtCheckAll
+sbtn 'scalafixAll --check'
+sbtn mimaReportBinaryIssues
+sbtn '+ test'

@@ -1,3 +1,5 @@
+import MimaSettings.mimaSettings
+
 name := "zio-ubench"
 organization := "dev.koubic"
 version := scala.io.Source.fromFile(s"${baseDirectory.value}/version").mkString("").trim
@@ -45,4 +47,6 @@ scalacOptions ++= Seq("-Ywarn-unused-import").filter(_ =>
     case _ => true
   }
 )
+
+mimaSettings(failOnProblem = false)
 
