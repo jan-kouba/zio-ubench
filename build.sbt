@@ -8,7 +8,7 @@ val scalaVersions = Seq(
   "2.13.5",
   "2.12.13",
   "2.11.12",
-  "3.0.0-RC2"
+  "3.0.0-RC3"
 )
 scalaVersion := scalaVersions.head
 crossScalaVersions := scalaVersions
@@ -25,7 +25,7 @@ scalacOptions ++=
     )
 
 // Dependencies
-val zioVersion = "1.0.6"
+val zioVersion = "1.0.7"
 
 libraryDependencies += "dev.zio" %% "zio" % zioVersion
 
