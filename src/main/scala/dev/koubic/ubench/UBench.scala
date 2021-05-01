@@ -25,12 +25,13 @@ object UBench {
         io
       )
       iterCount = (approxRunDuration.toNanos.toDouble / preheatDur.toNanos).round.toInt max 1
-      e <- Benchmark.execute(
-        benchmarkingStrategy || (Benchmark.minMeasurements(maxNopMeasurementCount) &> Benchmark.minMeasurementDuration),
+      nopDur <- Benchmark.execute(
+        benchmarkingStrategy || (
+          Benchmark.minMeasurements(maxNopMeasurementCount) &>
+            Benchmark.minMeasurementDuration
+        ),
         ZIO.unit.repeatN(iterCount - 1)
       )
-      (nopBenchDur, failbackDur) = e
-      nopDur = nopBenchDur min failbackDur
       ioDur <- Benchmark.execute(benchmarkingStrategy, io.repeatN(iterCount - 1))
     } yield (ioDur minus nopDur).dividedBy(iterCount) + 1.nano
   }

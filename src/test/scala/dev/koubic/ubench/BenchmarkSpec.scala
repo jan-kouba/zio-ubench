@@ -29,19 +29,20 @@ object BenchmarkTests {
       }
     }
 
-  def test_|| = {
+  def testOrEither
+    : Spec[Has[Clock.Service] with Has[TestClock.Service], TestFailure[Nothing], TestSuccess] = {
     def exec(dur: Duration, count: Int) =
       B.execute(
-        B.minRunTime(dur) || B.minMeasurements(count),
+        B.minRunTime(dur) orEither B.minMeasurements(count),
         clock.sleep(1.milli)
       ) raceFirst TestClock.adjust(10.millis).forever
 
-    suite("||")(
+    suite("orEither")(
       testM("right stops")(
-        assertM(exec(5.millis, 3))(equalTo((3.millis, 3)))
+        assertM(exec(5.millis, 3))(isRight(equalTo(3)))
       ),
       testM("left stops")(
-        assertM(exec(3.millis, 5))(equalTo((3.millis, 3)))
+        assertM(exec(3.millis, 5))(isLeft(equalTo(3.millis)))
       )
     )
   }
@@ -51,6 +52,6 @@ object BenchmarkSpec extends DefaultRunnableSpec {
   def spec: ZSpec[Has[Clock.Service] with Has[TestClock.Service] with Live, Any] =
     suite("Benchmark")(
       testMinRunTime,
-      test_||
+      testOrEither
     ) @@ TestAspect.timeout(5.second)
 }
