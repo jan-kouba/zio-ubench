@@ -388,16 +388,19 @@ object Benchmark {
   def minMeasurementDuration: Benchmark[Any, Any, Duration] =
     unfoldDur(Duration.Infinity)(_ min _)
 
-  /** Outputs the mean squared error of the durations received on input.
+  /** Outputs the normalized root-mean-square error of the durations received on input.
+    *  NRMSE is calculated as RMSE / AVG
     *
-    * Typical usage is `collectLastNDurations(20) >>> mseNs`.
+    * Typical usage is `collectLastNDurations(20) >>> nrmse`.
     */
-  def mseNs: Benchmark[Any, Vector[Duration], Double] =
+  def nrmse: Benchmark[Any, Vector[Duration], Double] =
     fromFunc { (measurements: Vector[Duration]) =>
       val measurementsNs = measurements.map(_.toNanos.toDouble)
       val avg = (measurementsNs.sum / measurements.size).round
 
-      measurementsNs.map { m => (m - avg) * (m - avg) }.sum / measurementsNs.size
+      val mse = measurementsNs.map { m => (m - avg) * (m - avg) }.sum / measurementsNs.size
+      val rmse = math.sqrt(mse)
+      rmse / avg
     }
 
   /** Outputs the average of the values received on input.
@@ -412,12 +415,11 @@ object Benchmark {
     }
 
   /** Runs until the durations of last `keepLastItems` measurements
-    * have root mean squared error lower than `maxRmse`.
+    * have normalized root-mean-square error lower than `maxRmse`.
     * The benchmark outputs the average of the `keepLastItems` measurements.
     */
-  def untilLowRmse(maxRmse: Duration, keepLastItems: Int): Benchmark[Any, Any, Duration] = {
-    val maxMse = maxRmse.toNanos * maxRmse.toNanos
-    collectLastNDurations(keepLastItems) >>> (mseNs.untilOutput(_ < maxMse) &> avgDuration)
+  def untilLowNrmse(maxNrmse: Double, keepLastItems: Int): Benchmark[Any, Any, Duration] = {
+    collectLastNDurations(keepLastItems) >>> (nrmse.untilOutput(_ < maxNrmse) &> avgDuration)
   }
 
   /** Runs until the minimum of durations of measurements was not improved for `window` steps.
