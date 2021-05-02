@@ -344,6 +344,7 @@ object Benchmark {
     */
   def collectLastNDurations(n: Int): Benchmark[Any, Any, Vector[Duration]] =
     unfoldDur[Vector[Duration]](Vector()) { (s, dur) => (dur +: s).take(n) }
+      .untilOutput(_.size >= n)
 
   /** Outputs when benchmark started.
     */

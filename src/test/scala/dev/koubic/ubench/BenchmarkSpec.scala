@@ -46,12 +46,25 @@ object BenchmarkTests {
       )
     )
   }
+
+  def testCollectLastNDurations: Spec[Clock with TestClock, TestFailure[Nothing], TestSuccess] =
+    suite("collectLastNDurations")(
+      testM("should collect exactly N elements")(
+        assertM(
+          B.execute(
+            B.collectLastNDurations(3),
+            clock.sleep(1.milli)
+          )
+        )(hasSize(equalTo(3))) raceFirst TestClock.adjust(10.millis).forever
+      )
+    )
 }
 
 object BenchmarkSpec extends DefaultRunnableSpec {
   def spec: ZSpec[Has[Clock.Service] with Has[TestClock.Service] with Live, Any] =
     suite("Benchmark")(
       testMinRunTime,
-      testOrEither
+      testOrEither,
+      testCollectLastNDurations
     ) @@ TestAspect.timeout(5.second)
 }
