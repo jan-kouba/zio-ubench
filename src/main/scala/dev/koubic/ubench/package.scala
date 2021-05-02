@@ -34,7 +34,7 @@ package object ubench {
     def benchmark[R1 <: R with Clock](
       preheatStrategy: Benchmark[R1, Any, Any] = Defaults.Preheat,
       approxRunDuration: Duration = Defaults.ApproxRunDuration,
-      benchmarkingStrategy: Benchmark[R, Any, Duration] = Defaults.Measure
+      benchmarkingStrategy: Benchmark[R1, Any, Duration] = Defaults.Measure
     ): ZIO[R1, E, Duration] =
       UBench.benchmark(io, preheatStrategy, approxRunDuration, benchmarkingStrategy)
   }
