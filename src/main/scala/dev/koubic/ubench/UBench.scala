@@ -6,9 +6,9 @@ import zio.duration._
 
 object UBench {
   object Defaults {
-    val Preheat: Benchmark[Clock, Any, Duration] = Benchmark.minRunTime(100.millis)
+    val Preheat: Benchmark[Clock, Any, Duration] = Benchmark.untilTotalDuration(100.millis)
     val ApproxRunDuration: Duration = 5.millis
-    val Measure: Benchmark[Any, Any, Duration] = Benchmark.untilLocalMin(20)
+    val Measure: Benchmark[Any, Any, Duration] = Benchmark.untilLocalDurationMin(20)
   }
 
   def benchmark[R <: Clock, E](

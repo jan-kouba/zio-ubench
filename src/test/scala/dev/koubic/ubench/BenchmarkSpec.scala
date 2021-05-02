@@ -19,7 +19,7 @@ object BenchmarkTests {
       for {
         (totalTime, (benchRes, count)) <-
           B.execute(
-            B.minRunTime(minDur) && B.measurementCount,
+            B.untilTotalDuration(minDur) && B.measurementCount,
             clock.sleep(sleepDur)
           ).timed <& TestClock.adjust(100.millis)
       } yield {
@@ -33,7 +33,7 @@ object BenchmarkTests {
     : Spec[Has[Clock.Service] with Has[TestClock.Service], TestFailure[Nothing], TestSuccess] = {
     def exec(dur: Duration, count: Int) =
       B.execute(
-        B.minRunTime(dur) orEither B.minMeasurements(count),
+        B.untilTotalDuration(dur) orEither B.minMeasurements(count),
         clock.sleep(1.milli)
       ) raceFirst TestClock.adjust(10.millis).forever
 
