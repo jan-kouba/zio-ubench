@@ -1,6 +1,6 @@
-package dev.koubic.ubench
+package zio.ubench
 
-import dev.koubic.ubench.Benchmark.{Result, StepFunc}
+import zio.ubench.Benchmark.{Result, StepFunc}
 import zio._
 import zio.clock._
 import zio.duration._

@@ -1,7 +1,7 @@
-package dev.koubic.ubench
+package zio.ubench
 
-import dev.koubic.ubench.{Benchmark => B}
-import dev.koubic.ubench.BenchmarkTests._
+import zio.ubench.{Benchmark => B}
+import zio.ubench.BenchmarkTests._
 import zio._
 import zio.duration._
 import zio.test.Assertion._

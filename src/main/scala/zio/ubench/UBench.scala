@@ -1,4 +1,4 @@
-package dev.koubic.ubench
+package zio.ubench
 
 import zio._
 import zio.clock.Clock

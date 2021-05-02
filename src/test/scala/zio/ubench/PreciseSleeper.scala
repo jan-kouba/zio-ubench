@@ -1,4 +1,4 @@
-package dev.koubic.ubench
+package zio.ubench
 
 import zio.duration.Duration
 import zio.{Has, UIO, ZIO, ZLayer}

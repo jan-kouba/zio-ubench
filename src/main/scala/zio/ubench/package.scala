@@ -1,7 +1,6 @@
-package dev.koubic
+package zio
 
-import dev.koubic.ubench.UBench.Defaults
-import zio.ZIO
+import zio.ubench.UBench.Defaults
 import zio.clock.Clock
 import zio.duration.Duration
 
