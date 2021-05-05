@@ -171,6 +171,57 @@ sealed trait Benchmark[-R, -I, +O] { self =>
       loop(self.step, that.step)
     }
 
+  /** Runs `this` benchmark to completion, then uses the output value to construct a new benchmark
+    * and runs that to completion.
+    */
+  def andThenM[R1 <: R, I1 <: I, O2](
+    that: O => ZIO[R1, Nothing, Benchmark[R1, I1, O2]]
+  ): Benchmark[R1, I1, (O, O2)] = {
+    Benchmark {
+      def loop(step: StepFunc[R, I, O]): StepFunc[R1, I1, (O, O2)] = { (dur, i) =>
+        for {
+          rThis <- step(dur, i)
+          r <-
+            rThis match {
+              case Result.NeedsMore(nextStep) =>
+                ZIO.succeed(loop(nextStep))
+              case Result.HasOutput(out, nextStep) =>
+                that(out).map { thatB =>
+                  loopThat(nextStep, thatB.step)
+                }
+            }
+        } yield Result.NeedsMore(r)
+      }
+
+      def loopThat(
+        thisStep: StepFunc[R, I, O],
+        thatStep: StepFunc[R1, I1, O2]
+      ): StepFunc[R1, I1, (O, O2)] = { (dur, i) =>
+        for {
+          r1 <- thisStep(dur, i)
+          r2 <- thatStep(dur, i)
+        } yield {
+          val nextStep = loopThat(r1.nextStep, r2.nextStep)
+
+          (r1, r2) match {
+            case (Result.HasOutput(out1, _), Result.HasOutput(out2, _)) =>
+              Result.HasOutput((out1, out2), nextStep)
+
+            case _ =>
+              Result.NeedsMore(nextStep)
+          }
+        }
+      }
+
+      loop(step)
+    }
+  }
+
+  /** See `andThenM`.
+    */
+  def andThen[R1 <: R, I1 <: I, O2](that: O => Benchmark[R1, I1, O2]): Benchmark[R1, I1, (O, O2)] =
+    andThenM { o => ZIO.succeed(that(o)) }
+
   /** Like until but works only on the output of the benchmark.
     */
   def untilOutput(func: O => Boolean): Benchmark[R, I, O] =

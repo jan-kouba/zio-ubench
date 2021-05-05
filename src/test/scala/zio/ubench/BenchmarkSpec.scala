@@ -47,6 +47,17 @@ object BenchmarkTests {
     )
   }
 
+  def testAndThen: ZSpec[Clock with TestClock, Nothing] = testM("andThen") {
+    assertM(
+      B.execute(
+        B.untilTotalDuration(3.millis).andThen { totalDur =>
+          B.const(totalDur) && B.minMeasurements(2)
+        },
+        clock.sleep(1.milli)
+      )
+    )(equalTo((5.millis, (3.millis, 2)))) raceFirst TestClock.adjust(10.millis).forever
+  }
+
   def testCollectLastNDurations: Spec[Clock with TestClock, TestFailure[Nothing], TestSuccess] =
     suite("collectLastNDurations")(
       testM("should collect exactly N elements")(
@@ -65,6 +76,7 @@ object BenchmarkSpec extends DefaultRunnableSpec {
     suite("Benchmark")(
       testMinRunTime,
       testOrEither,
+      testAndThen,
       testCollectLastNDurations
     ) @@ TestAspect.timeout(5.second)
 }
