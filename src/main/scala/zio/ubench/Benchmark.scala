@@ -278,6 +278,12 @@ object Benchmark {
     loop
   }
 
+  /** Alias for `minMeasurementDuration`.
+    * Use this if you want to end the benchmark immediately and produce "something meaningful".
+    */
+  def nop =
+    minMeasurementDuration
+
   /** A benchmark that just forwards its input.
     */
   def id[I]: Benchmark[Any, I, (Duration, I)] =
@@ -287,6 +293,11 @@ object Benchmark {
 
       step
     }
+
+  /** See `constM()`.
+    */
+  def const[O](value: O): Benchmark[Any, Any, O] =
+    constM(ZIO.succeed(value))
 
   /** Output a value produced by running the effect `value`.
     * The `value` effect is run only once.
