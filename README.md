@@ -18,7 +18,7 @@ import zio._
 import zio.duration._
 
 val io = ZIO.effectTotal {
-  (0 until 1_000_000)
+  (0 until 1000000)
     .map(_ + 1)
     .last
 }

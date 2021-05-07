@@ -267,6 +267,27 @@ sealed trait Benchmark[-R, -I, +O] { self =>
 
     (this >>> stopper).map(_._1)
   }
+
+  /** Preheats the effect by running a benchmark `preheat`
+    * and then uses `this` to do the actual benchmark of the repeated effect.
+    *
+    * The effect is repeated like this:
+    * `effect.repeatN((approxRunDuration / minMeasurementFromPreheat - 1) max 1)`.
+    */
+  def withPreheat[R1 <: R](
+    preheat: Benchmark[R1, Any, Any],
+    approxRunDuration: Duration
+  ): Benchmark[R1, I, O] = {
+    (preheat &> Benchmark.minMeasurementDuration)
+      .andThen { minDurFromPreheat =>
+        val invocationCount =
+          (approxRunDuration.toNanos.toDouble / minDurFromPreheat.toNanos).round.toInt max 1
+
+        Benchmark.minInvocationCount(invocationCount) &>
+          this
+      }
+      .map(_._2)
+  }
 }
 
 object Benchmark {
@@ -389,6 +410,16 @@ object Benchmark {
       }
     }
 
+  /** Requires that at least `minI` invocations of the benchmarked IO are measured in every step.
+    */
+  def minInvocationCount(minI: Int): Benchmark[Any, Any, Any] =
+    apply {
+      lazy val loop: (Duration, Any) => ZIO[Any, Nothing, Result[Any, Any, Unit]] =
+        (_: Duration, _: Any) => ZIO.succeed(Result.HasOutput((), loop, minI))
+
+      loop
+    }
+
   /** Like `unfoldM`.
     */
   def unfold[S, I](init: S)(next: (S, I, Duration) => S): Benchmark[Any, I, S] =
@@ -509,6 +540,16 @@ object Benchmark {
     */
   def untilLocalDurationMin(window: Int): Benchmark[Any, Any, Duration] =
     measurementDuration.untilLocalMinimum(window)
+
+  /** Default benchmark that first preheats the effect
+    * and then runs the actual benchmark (see `withPreheat()` for more details).
+    *
+    * Returns the estimated duration of a single run of the effect `io`.
+    */
+  def default: Benchmark[Clock, Any, Duration] = {
+    (Benchmark.untilLocalDurationMin(30) &> Benchmark.minMeasurementDuration)
+      .withPreheat(Benchmark.untilTotalDuration(100.millis), 5.millis)
+  }
 
   /** Benchmarks the effect `io` using `bench`.
     */
