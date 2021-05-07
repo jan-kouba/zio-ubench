@@ -38,11 +38,11 @@ duration of execution of io: PT0.02105794S
 
 ---- 
 
-The `benchmark()` method has several parameters that can be used to tune the benchmarking process:
+The `benchmark()` method accepts the parameter that describes how to do the benchmark:
 
 ```scala
 val ioDur = io.benchmark(
-  benchmarkingStrategy = Benchmark.untilLocalDurationMin(30)
+  Benchmark.untilLocalDurationMin(30)
 )
 ```
 This stops the benchmark after the run time of the `io` was not improved for 30 steps.
@@ -51,8 +51,7 @@ We can also require the benchmark to run for at least 1 second:
 
 ```scala
 val ioDur = io.benchmark(
-  benchmarkingStrategy = 
-    Benchmark.untilLocalDurationMin(30) <& Benchmark.untilTotalDuration(1.second))
+  Benchmark.untilLocalDurationMin(30) <& Benchmark.untilTotalDuration(1.second)
 )
 ```
 
@@ -60,13 +59,30 @@ We can also stop the benchmark if NRMSE is low and return the minimal run time o
 
 ```scala
 val ioDur = io.benchmark(
-  benchmarkingStrategy =
-    (
-      (Benchmark.untilLocalDurationMin(30) <& Benchmark.untilTotalDuration(1.second)) ||
-      Benchmark.untilLowNrmse(0.05, 10)
-    ) &> Benchmark.minMeasurementDuration
+  (
+    (Benchmark.untilLocalDurationMin(30) <& Benchmark.untilTotalDuration(1.second)) ||
+    Benchmark.untilLowNrmse(0.05, 10)
+  ) &> Benchmark.minMeasurementDuration
 )
 ```
+
+We can also preheat the effect by running it for 1 second and then use
+the minimal run time from the pre-heat phase to calculate the number of repetitions of the effect,
+so that it runs approximately 50 milliseconds and then benchmark the repeated effect:
+
+```scala
+val ioDur = io.benchmark(
+  (
+    (
+      (Benchmark.untilLocalDurationMin(30) <& Benchmark.untilTotalDuration(1.second)) ||
+        Benchmark.untilLowNrmse(0.05, 10)
+    ) &> Benchmark.minMeasurementDuration
+  ).withPreheat(Benchmark.untilTotalDuration(100.millis), 50.millis)
+)
+
+```
+
+See `test/scala/example/` directory for examples.
 
 For more details see the scaladoc of the `Benchmark` class.
 
