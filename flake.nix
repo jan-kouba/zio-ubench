@@ -19,6 +19,7 @@
             pkgs.jdk
             pkgs.ammonite
             pkgs.gitMinimal
+            pkgs.gnupg
           ];
         };
       }

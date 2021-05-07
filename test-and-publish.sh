@@ -5,5 +5,5 @@ set -eu
 
 ./test.sh
 
-sbtn '+ publish'
+sbtn '+ publishSigned'
 
