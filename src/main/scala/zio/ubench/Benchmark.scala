@@ -28,18 +28,14 @@ sealed trait Benchmark[-R, -I, +O] { self =>
   def mapM[R1 <: R, O2](func: O => URIO[R1, O2]): Benchmark[R1, I, O2] =
     Benchmark {
       def loop(stepFunc: StepFunc[R, I, O]): StepFunc[R1, I, O2] = { (dur, i) =>
-        for {
-          r1 <- stepFunc(dur, i)
-          r <-
-            r1 match {
-              case Result.HasOutput(out, nextFunc) =>
-                func(out).map { r2 =>
-                  Result.HasOutput(r2, loop(nextFunc))
-                }
-              case Result.NeedsMore(nextFunc) =>
-                ZIO.succeed(Result.NeedsMore(loop(nextFunc)))
+        stepFunc(dur, i).flatMap {
+          case Result.HasOutput(out, nextFunc, minI) =>
+            func(out).map { r2 =>
+              Result.HasOutput(r2, loop(nextFunc), minI)
             }
-        } yield r
+          case Result.NeedsMore(nextFunc, minI) =>
+            ZIO.succeed(Result.NeedsMore(loop(nextFunc), minI))
+        }
       }
 
       loop(this.step)
@@ -53,30 +49,29 @@ sealed trait Benchmark[-R, -I, +O] { self =>
   /** Creates a new benchmark that is done when both this and `that` benchmarks are done.
     */
   def &&[R1 <: R, I1 <: I, O1](that: Benchmark[R1, I1, O1]): Benchmark[R1, I1, (O, O1)] =
-    new Benchmark[R1, I1, (O, O1)] {
-      def step: StepFunc[R1, I1, (O, O1)] = {
-        def loop(
-          thisStep: StepFunc[R, I, O],
-          thatStep: StepFunc[R1, I1, O1]
-        ): StepFunc[R1, I1, (O, O1)] = { (dur, i) =>
-          for {
-            r1 <- thisStep(dur, i)
-            r2 <- thatStep(dur, i)
-          } yield {
-            val nextStep = loop(r1.nextStep, r2.nextStep)
+    Benchmark {
+      def loop(
+        thisStep: StepFunc[R, I, O],
+        thatStep: StepFunc[R1, I1, O1]
+      ): StepFunc[R1, I1, (O, O1)] = { (dur, i) =>
+        for {
+          r1 <- thisStep(dur, i)
+          r2 <- thatStep(dur, i)
+        } yield {
+          val nextStep = loop(r1.nextStep, r2.nextStep)
+          val minI = r1.nextMinInvocationCount max r2.nextMinInvocationCount
 
-            (r1, r2) match {
-              case (Result.HasOutput(out1, nextStep1), Result.HasOutput(out2, nextStep2)) =>
-                Result.HasOutput((out1, out2), nextStep)
+          (r1, r2) match {
+            case (Result.HasOutput(out1, _, _), Result.HasOutput(out2, _, _)) =>
+              Result.HasOutput((out1, out2), nextStep, minI)
 
-              case (_, _) =>
-                Result.NeedsMore(nextStep)
-            }
+            case (_, _) =>
+              Result.NeedsMore(nextStep, minI)
           }
         }
-
-        loop(self.step, that.step)
       }
+
+      loop(self.step, that.step)
     }
 
   /** Like `&&` but keeps only the output of `this`.
@@ -115,23 +110,26 @@ sealed trait Benchmark[-R, -I, +O] { self =>
           thatR <- thatStep(dur, i)
         } yield {
           val nextStep = loop(thisR.nextStep, thatR.nextStep)
+          val nextMinI = thisR.nextMinInvocationCount max thatR.nextMinInvocationCount
 
           thisR match {
-            case Result.HasOutput(thisV, _) =>
+            case Result.HasOutput(thisV, _, _) =>
               Result.HasOutput(
                 Left(thisV),
-                nextStep
+                nextStep,
+                nextMinI
               )
 
-            case Result.NeedsMore(_) =>
+            case Result.NeedsMore(_, _) =>
               thatR match {
-                case Result.HasOutput(thatV, _) =>
+                case Result.HasOutput(thatV, _, _) =>
                   Result.HasOutput(
                     Right(thatV),
-                    nextStep
+                    nextStep,
+                    nextMinI
                   )
-                case Result.NeedsMore(_) =>
-                  Result.NeedsMore(nextStep)
+                case Result.NeedsMore(_, _) =>
+                  Result.NeedsMore(nextStep, nextMinI)
               }
           }
         }
@@ -149,23 +147,20 @@ sealed trait Benchmark[-R, -I, +O] { self =>
     Benchmark {
       def loop(thisStep: StepFunc[R, I, O], thatStep: StepFunc[R1, O, O1]): StepFunc[R1, I, O1] = {
         (dur, i) =>
-          for {
-            r1 <- thisStep(dur, i)
-            r <-
-              r1 match {
-                case Result.HasOutput(out, _) =>
-                  thatStep(dur, out).map { r2 =>
-                    r2.withNextStep(loop(r1.nextStep, r2.nextStep)): Result[R1, I, O1]
-                  }
-
-                case Result.NeedsMore(thisNextStep) =>
-                  ZIO.succeed(
-                    Result.NeedsMore(
-                      loop(thisNextStep, thatStep)
-                    ): Result[R1, I, O1]
-                  )
+          thisStep(dur, i).flatMap {
+            case Result.HasOutput(out, nextStep1, minI1) =>
+              thatStep(dur, out).map { r2 =>
+                r2.withNextStep(loop(nextStep1, r2.nextStep), minI1 max r2.nextMinInvocationCount)
               }
-          } yield r
+
+            case Result.NeedsMore(thisNextStep, minI) =>
+              ZIO.succeed(
+                Result.NeedsMore(
+                  loop(thisNextStep, thatStep),
+                  minI
+                )
+              )
+          }
       }
 
       loop(self.step, that.step)
@@ -183,14 +178,14 @@ sealed trait Benchmark[-R, -I, +O] { self =>
           rThis <- step(dur, i)
           r <-
             rThis match {
-              case Result.NeedsMore(nextStep) =>
+              case Result.NeedsMore(nextStep, _) =>
                 ZIO.succeed(loop(nextStep))
-              case Result.HasOutput(out, nextStep) =>
+              case Result.HasOutput(out, nextStep, _) =>
                 that(out).map { thatB =>
                   loopThat(nextStep, thatB.step)
                 }
             }
-        } yield Result.NeedsMore(r)
+        } yield Result.NeedsMore(r, rThis.nextMinInvocationCount)
       }
 
       def loopThat(
@@ -202,13 +197,14 @@ sealed trait Benchmark[-R, -I, +O] { self =>
           r2 <- thatStep(dur, i)
         } yield {
           val nextStep = loopThat(r1.nextStep, r2.nextStep)
+          val nextMinI = r1.nextMinInvocationCount max r2.nextMinInvocationCount
 
           (r1, r2) match {
-            case (Result.HasOutput(out1, _), Result.HasOutput(out2, _)) =>
-              Result.HasOutput((out1, out2), nextStep)
+            case (Result.HasOutput(out1, _, _), Result.HasOutput(out2, _, _)) =>
+              Result.HasOutput((out1, out2), nextStep, nextMinI)
 
             case _ =>
-              Result.NeedsMore(nextStep)
+              Result.NeedsMore(nextStep, nextMinI)
           }
         }
       }
@@ -238,12 +234,12 @@ sealed trait Benchmark[-R, -I, +O] { self =>
     Benchmark {
       def loop(thisStep: StepFunc[R, I, O]): StepFunc[R1, I1, O] = { (dur, i) =>
         thisStep(dur, i).flatMap {
-          case Result.NeedsMore(nextFunc) =>
-            ZIO.succeed(Result.NeedsMore(loop(nextFunc)))
-          case Result.HasOutput(out, nextFunc) =>
+          case Result.NeedsMore(nextFunc, minI) =>
+            ZIO.succeed(Result.NeedsMore(loop(nextFunc), minI))
+          case Result.HasOutput(out, nextFunc, minI) =>
             pred(i, out).map { done =>
-              if (done) Result.HasOutput(out, nextFunc)
-              else Result.NeedsMore(loop(nextFunc))
+              if (done) Result.HasOutput(out, nextFunc, minI)
+              else Result.NeedsMore(loop(nextFunc), minI)
             }
         }
       }
@@ -279,32 +275,53 @@ object Benchmark {
   /** The result of one step of a benchmark.
     */
   sealed trait Result[-R, -I, +O] {
-    def withNextStep[R1, I1, O1 >: O](nextStep: StepFunc[R1, I1, O1]): Result[R1, I1, O1]
+    def withNextStep[R1, I1, O1 >: O](
+      nextStep: StepFunc[R1, I1, O1],
+      nextMinInvocationCount: Int
+    ): Result[R1, I1, O1]
 
     val nextStep: StepFunc[R, I, O]
+    val nextMinInvocationCount: Int
   }
 
   object Result {
 
     /** Indicates that the benchmark is not able to produce a value yet and that it needs more input.
-      * `nextStep` returns the function to call for the next step.
+      * `nextStep` is the function to call for the next step,
+      * `nextMinInvocationCount` is at least how many times the measured IO should be called the next time.
       */
     final case class NeedsMore[-R, -I, +O](
-      nextStep: StepFunc[R, I, O]
+      nextStep: StepFunc[R, I, O],
+      nextMinInvocationCount: Int
     ) extends Result[R, I, O] {
-      def withNextStep[R1, I1, O1 >: O](nextStep: StepFunc[R1, I1, O1]): Result[R1, I1, O1] =
-        copy(nextStep = nextStep)
+      def withNextStep[R1, I1, O1 >: O](
+        nextStep: StepFunc[R1, I1, O1],
+        nextMinInvocationCount: Int
+      ): Result[R1, I1, O1] =
+        NeedsMore(
+          nextStep,
+          nextMinInvocationCount
+        )
     }
 
     /** Indicates that the benchmark was fed enough values so that it can produce the `output`.
-      * `nextStep` is a function for next steps of the benchmark.
+      * `nextStep` is a function for next steps of the benchmark,
+      * `nextMinInvocationCount` is at least how many times the measured IO should be called the next time.
       */
     final case class HasOutput[-R, -I, +O](
       value: O,
-      nextStep: StepFunc[R, I, O]
+      nextStep: StepFunc[R, I, O],
+      nextMinInvocationCount: Int
     ) extends Result[R, I, O] {
-      def withNextStep[R1, I1, O1 >: O](nextStep: StepFunc[R1, I1, O1]): Result[R1, I1, O1] =
-        copy(nextStep = nextStep)
+      def withNextStep[R1, I1, O1 >: O](
+        nextStep: StepFunc[R1, I1, O1],
+        nextMinInvocationCount: Int
+      ): Result[R1, I1, O1] =
+        HasOutput(
+          value,
+          nextStep,
+          nextMinInvocationCount
+        )
     }
   }
 
@@ -317,17 +334,19 @@ object Benchmark {
 
   /** Creates a benchmark that just transforms its input and that is immediately done.
     */
-  def fromFunc[A, B](f: A => B): Benchmark[Any, A, B] = apply {
-    def loop: StepFunc[Any, A, B] = { (_, i) =>
-      ZIO.succeed(
-        Result.HasOutput(
-          f(i),
-          loop
+  def fromFunc[A, B](f: A => B): Benchmark[Any, A, B] =
+    apply {
+      def loop: StepFunc[Any, A, B] = { (_, i) =>
+        ZIO.succeed(
+          Result.HasOutput(
+            f(i),
+            loop,
+            1
+          )
         )
-      )
+      }
+      loop
     }
-    loop
-  }
 
   /** Alias for `minMeasurementDuration`.
     * Use this if you want to end the benchmark immediately and produce "something meaningful".
@@ -340,7 +359,7 @@ object Benchmark {
   def id[I]: Benchmark[Any, I, (Duration, I)] =
     apply {
       lazy val step: StepFunc[Any, I, (Duration, I)] =
-        (dur, i) => ZIO.succeed(Result.HasOutput((dur, i), step))
+        (dur, i) => ZIO.succeed(Result.HasOutput((dur, i), step, 1))
 
       step
     }
@@ -358,14 +377,14 @@ object Benchmark {
       def loopTail(v: O): StepFunc[R, Any, O] = {
         lazy val l: StepFunc[R, Any, O] = (_, _) =>
           ZIO.succeed(
-            Result.HasOutput(v, l)
+            Result.HasOutput(v, l, 1)
           )
         l
       }
 
       { (_: Duration, _: Any) =>
         value.map { v =>
-          Result.HasOutput(v, loopTail(v))
+          Result.HasOutput(v, loopTail(v), 1)
         }
       }
     }
@@ -393,7 +412,8 @@ object Benchmark {
         next(state, i, dur).map { nextState =>
           Result.HasOutput(
             nextState,
-            loop(nextState)
+            loop(nextState),
+            1
           )
         }
       }
@@ -496,18 +516,25 @@ object Benchmark {
     bench: Benchmark[R, Any, O],
     io: ZIO[R, E, Any]
   ): ZIO[R, E, O] = {
-    def loop(step: StepFunc[R, Any, O]): ZIO[R, E, O] = {
+    def measureN(io: ZIO[R, E, Any], n: Int) = {
+      require(n > 0)
+      io.repeatN(n - 1)
+        .timed
+        .map(_._1)
+    }
+
+    def loop(step: StepFunc[R, Any, O], nextInvocationCount: Int): ZIO[R, E, O] = {
       for {
-        e <- io.timed
-        (dur, _) = e
-        o <- step(dur, ())
-        r <- o match {
-          case Result.HasOutput(v, _) => ZIO.succeed(v)
-          case Result.NeedsMore(nextStep) => loop(nextStep)
+        ioDur <- measureN(io, nextInvocationCount)
+        nopDur <- measureN(ZIO.unit, nextInvocationCount)
+        dur = (ioDur minus nopDur) dividedBy nextInvocationCount
+        r <- step(dur, ()).flatMap {
+          case Result.HasOutput(v, _, _) => ZIO.succeed(v)
+          case Result.NeedsMore(nextStep, minI) => loop(nextStep, minI)
         }
       } yield r
     }
 
-    loop(bench.step)
+    loop(bench.step, 1)
   }
 }
