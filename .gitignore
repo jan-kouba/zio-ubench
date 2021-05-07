@@ -1,6 +1,7 @@
 /target/
 /project/target/
 /project/project/target/
+/*.local.sbt
 
 /.direnv/
 /.idea/
