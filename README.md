@@ -86,7 +86,7 @@ See `test/scala/example/` directory for examples.
 
 For more details see the scaladoc of the `Benchmark` class.
 
-[Badge-SonatypeReleases]: https://img.shields.io/nexus/r/https/oss.sonatype.org/dev.koubic/zio-ubench_2.13.svg "Sonatype Releases"
-[Badge-SonatypeSnapshots]: https://img.shields.io/nexus/s/https/oss.sonatype.org/dev.koubic/zio-ubench_2.13.svg "Sonatype Snapshots"
-[Link-SonatypeSnapshots]: https://oss.sonatype.org/content/repositories/snapshots/dev/koubic/zio-ubenchc_2.13/ "Sonatype Snapshots"
-[Link-SonatypeReleases]: https://oss.sonatype.org/content/repositories/releases/dev/koubic/zio-ubenchc_2.13/ "Sonatype Releases"
+[Badge-SonatypeReleases]: https://img.shields.io/nexus/r/https/s01.oss.sonatype.org/dev.koubic/zio-ubench_2.13.svg "Sonatype Releases"
+[Badge-SonatypeSnapshots]: https://img.shields.io/nexus/s/https/s01.oss.sonatype.org/dev.koubic/zio-ubench_2.13.svg "Sonatype Snapshots"
+[Link-SonatypeSnapshots]: https://s01.oss.sonatype.org/content/repositories/snapshots/dev/koubic/zio-ubenchc_2.13/ "Sonatype Snapshots"
+[Link-SonatypeReleases]: https://s01.oss.sonatype.org/content/repositories/releases/dev/koubic/zio-ubenchc_2.13/ "Sonatype Releases"
